@@ -63,29 +63,45 @@ async def test(ctx):
 @app.route('/update', methods=['POST'])
 def update():
     global message_id
+    print("=== STARTING UPDATE ROUTE ===")
     try:
-        print("Received POST request to /update")
+        print("1. Received POST request to /update")
+        print(f"2. Request headers: {dict(request.headers)}")
+        print(f"3. Request content type: {request.content_type}")
+        
         data = request.get_json()
-        print(f"Received data: {data}")
+        print(f"4. Parsed JSON data: {data}")
+        
+        if not data:
+            print("ERROR: No JSON data received")
+            return 'No data received', 400
+        
         players = data.get('players', {})
-        print(f"Players: {players}")
+        print(f"5. Extracted players: {players}")
+        print(f"6. Number of players: {len(players)}")
         
         embed = discord.Embed(title="Player Levels", color=0x3498db)
         embed.set_footer(text=f"Last updated: {len(players)} players")
         
+        print("7. Creating embed fields...")
         for username, level in players.items():
             embed.add_field(name=username, value=f"Level: {level}", inline=True)
+            print(f"   - Added {username}: Level {level}")
         
+        print("8. Getting channel...")
         channel = bot.get_channel(CHANNEL_ID)
-        print(f"Channel found: {channel}")
+        print(f"9. Channel found: {channel}")
+        print(f"10. Channel ID: {CHANNEL_ID}")
         
         if not channel:
             print(f"ERROR: Channel {CHANNEL_ID} not found!")
             return 'Channel not found', 404
         
+        print("11. Channel exists, checking permissions...")
         # Check permissions more safely
         try:
             permissions = channel.permissions_for(channel.guild.me)
+            print(f"12. Permissions check successful")
             if not permissions.send_messages:
                 print(f"ERROR: Bot doesn't have permission to send messages in channel {CHANNEL_ID}")
                 return 'No permission to send messages', 403
@@ -93,29 +109,37 @@ def update():
             print(f"Warning: Could not check permissions: {e}")
             # Continue anyway, let Discord handle the error if it occurs
         
+        print("13. Starting async send/edit function...")
         async def send_or_edit():
             global message_id
             try:
+                print(f"14. Inside async function, message_id: {message_id}")
                 if message_id:
-                    print(f"Trying to update message {message_id}")
+                    print(f"15. Trying to update message {message_id}")
                     msg = await channel.fetch_message(message_id)
                     await msg.edit(embed=embed)
-                    print("Message updated successfully")
+                    print("16. Message updated successfully")
                 else:
-                    print("Sending new message")
+                    print("17. Sending new message")
                     msg = await channel.send(embed=embed)
                     message_id = msg.id
-                    print(f"New message sent with ID: {message_id}")
+                    print(f"18. New message sent with ID: {message_id}")
             except Exception as e:
-                print(f"Error in send_or_edit: {e}")
+                print(f"19. Error in send_or_edit: {e}")
+                print(f"20. Trying fallback - sending new message")
                 msg = await channel.send(embed=embed)
                 message_id = msg.id
-                print(f"Fallback message sent with ID: {message_id}")
+                print(f"21. Fallback message sent with ID: {message_id}")
         
+        print("22. Creating task...")
         bot.loop.create_task(send_or_edit())
+        print("23. Task created successfully")
+        print("24. Returning success")
         return 'ok'
     except Exception as e:
-        print(f"Error in update route: {e}")
+        print(f"ERROR in update route: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
         return 'error', 500
 
 def run_flask():
