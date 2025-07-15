@@ -7,13 +7,14 @@ import os
 TOKEN = os.environ.get('DISCORD_BOT_TOKEN', 'YOUR_BOT_TOKEN')
 CHANNEL_ID = int(os.environ.get('DISCORD_CHANNEL_ID', '123456789012345678'))  # Replace with your channel ID
 
-bot = commands.Bot(command_prefix='!')
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='!', intents=intents)
 app = Flask(__name__)
 message_id = None
 player_levels = {}
 
 @bot.event
-def on_ready():
+async def on_ready():
     print(f'Logged in as {bot.user}')
 
 @app.route('/update', methods=['POST'])
