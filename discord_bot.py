@@ -42,8 +42,13 @@ async def status(ctx):
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
         embed.add_field(name="Target Channel", value=f"#{channel.name}", inline=True)
-        embed.add_field(name="Can Send Messages", value="✅" if channel.permissions_for(bot.user).send_messages else "❌", inline=True)
-        embed.add_field(name="Can Manage Messages", value="✅" if channel.permissions_for(bot.user).manage_messages else "❌", inline=True)
+        # Check permissions more safely
+        try:
+            permissions = channel.permissions_for(ctx.guild.me)
+            embed.add_field(name="Can Send Messages", value="✅" if permissions.send_messages else "❌", inline=True)
+            embed.add_field(name="Can Manage Messages", value="✅" if permissions.manage_messages else "❌", inline=True)
+        except:
+            embed.add_field(name="Permissions", value="❌ Error checking", inline=True)
     else:
         embed.add_field(name="Target Channel", value="❌ Not found", inline=True)
     
@@ -78,9 +83,15 @@ def update():
             print(f"ERROR: Channel {CHANNEL_ID} not found!")
             return 'Channel not found', 404
         
-        if not channel.permissions_for(bot.user).send_messages:
-            print(f"ERROR: Bot doesn't have permission to send messages in channel {CHANNEL_ID}")
-            return 'No permission to send messages', 403
+        # Check permissions more safely
+        try:
+            permissions = channel.permissions_for(channel.guild.me)
+            if not permissions.send_messages:
+                print(f"ERROR: Bot doesn't have permission to send messages in channel {CHANNEL_ID}")
+                return 'No permission to send messages', 403
+        except Exception as e:
+            print(f"Warning: Could not check permissions: {e}")
+            # Continue anyway, let Discord handle the error if it occurs
         
         async def send_or_edit():
             global message_id
