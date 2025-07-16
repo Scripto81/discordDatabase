@@ -68,7 +68,9 @@ def home():
 def update():
     global message_id
     print("=== STARTING UPDATE ROUTE ===")
+    print("A. Route function called")
     try:
+        print("B. Entered try block")
         print("1. Received POST request to /update")
         print(f"2. Request headers: {dict(request.headers)}")
         print(f"3. Request content type: {request.content_type}")
@@ -145,6 +147,11 @@ def update():
         import traceback
         print(f"Full traceback: {traceback.format_exc()}")
         return 'error', 500
+    except:
+        print("ERROR: Unknown exception occurred")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return 'unknown error', 500
 
 def run_flask():
     app.run(host='0.0.0.0', port=5000)
