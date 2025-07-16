@@ -3,6 +3,7 @@ from discord.ext import commands
 from flask import Flask, request
 import threading
 import os
+import json
 
 TOKEN = os.environ.get('DISCORD_BOT_TOKEN', 'YOUR_BOT_TOKEN')
 CHANNEL_ID = int(os.environ.get('DISCORD_CHANNEL_ID', '123456789012345678'))
@@ -11,6 +12,30 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
 app = Flask(__name__)
 message_id = None
+
+# File storage functions
+def save_players(players):
+    """Save players data to JSON file"""
+    try:
+        with open('player_levels.json', 'w') as f:
+            json.dump(players, f, indent=2)
+        print(f"Saved {len(players)} players to file")
+    except Exception as e:
+        print(f"Error saving players: {e}")
+
+def load_players():
+    """Load players data from JSON file"""
+    try:
+        with open('player_levels.json', 'r') as f:
+            players = json.load(f)
+            print(f"Loaded {len(players)} players from file")
+            return players
+    except FileNotFoundError:
+        print("No player data file found, starting fresh")
+        return {}
+    except Exception as e:
+        print(f"Error loading players: {e}")
+        return {}
 
 @bot.event
 async def on_ready():
@@ -58,6 +83,66 @@ async def status(ctx):
 async def test(ctx):
     """Test the bot by sending a test embed"""
     embed = discord.Embed(title="Test Message", description="Bot is working! 🎉", color=0x00ff00)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def search(ctx, username: str):
+    """Search for a player's level by username"""
+    players = load_players()
+    
+    # Search for exact match first
+    if username in players:
+        level = players[username]
+        embed = discord.Embed(title="Player Found", color=0x00ff00)
+        embed.add_field(name="Username", value=username, inline=True)
+        embed.add_field(name="Level", value=level, inline=True)
+        await ctx.send(embed=embed)
+        return
+    
+    # Search for partial matches
+    matches = []
+    username_lower = username.lower()
+    for player_name, level in players.items():
+        if username_lower in player_name.lower():
+            matches.append((player_name, level))
+    
+    if matches:
+        # Sort matches by level (highest first)
+        matches.sort(key=lambda x: x[1], reverse=True)
+        
+        embed = discord.Embed(title="Search Results", color=0x3498db)
+        embed.add_field(name="Search Term", value=username, inline=False)
+        
+        # Show up to 10 matches
+        for i, (player_name, level) in enumerate(matches[:10]):
+            embed.add_field(name=f"Match {i+1}", value=f"{player_name}: Level {level}", inline=True)
+        
+        if len(matches) > 10:
+            embed.set_footer(text=f"Showing 10 of {len(matches)} matches")
+        
+        await ctx.send(embed=embed)
+    else:
+        embed = discord.Embed(title="Player Not Found", description=f"No players found matching '{username}'", color=0xff0000)
+        await ctx.send(embed=embed)
+
+@bot.command()
+async def top(ctx, count: int = 10):
+    """Show top players by level"""
+    players = load_players()
+    
+    if not players:
+        embed = discord.Embed(title="No Data", description="No player data available", color=0xff0000)
+        await ctx.send(embed=embed)
+        return
+    
+    # Sort by level (highest first)
+    sorted_players = sorted(players.items(), key=lambda x: x[1], reverse=True)
+    
+    embed = discord.Embed(title=f"Top {min(count, len(sorted_players))} Players", color=0x00ff00)
+    
+    for i, (username, level) in enumerate(sorted_players[:count]):
+        embed.add_field(name=f"#{i+1} {username}", value=f"Level {level}", inline=False)
+    
     await ctx.send(embed=embed)
 
 @app.route('/')
@@ -113,45 +198,30 @@ def update():
             try:
                 print(f"13. Inside async function, message_id: {message_id}")
                 
-                # Get existing players from current message if it exists
-                existing_players = {}
-                if message_id:
-                    try:
-                        print("14. Fetching existing message to get current players...")
-                        existing_msg = await channel.fetch_message(message_id)
-                        if existing_msg and existing_msg.embeds:
-                            embed_content = existing_msg.embeds[0]
-                            for field in embed_content.fields:
-                                # Parse "Level: X" format to get level
-                                level_text = field.value
-                                if level_text and level_text.startswith("Level: "):
-                                    try:
-                                        level = int(level_text.replace("Level: ", ""))
-                                        existing_players[field.name] = level
-                                    except ValueError:
-                                        print(f"Could not parse level from: {level_text}")
-                            print(f"15. Found {len(existing_players)} existing players")
-                    except Exception as e:
-                        print(f"16. Could not fetch existing message: {e}")
-                        existing_players = {}
+                # Load existing players from file
+                existing_players = load_players()
+                print(f"14. Loaded {len(existing_players)} existing players from file")
                 
                 # Merge new players with existing players (keep higher levels)
                 all_players = existing_players.copy()
                 for username, new_level in new_players.items():
                     if username not in all_players or new_level > all_players[username]:
                         all_players[username] = new_level
-                        print(f"17. Updated {username}: {new_level}")
+                        print(f"15. Updated {username}: {new_level}")
                 
-                print(f"18. Total players after merge: {len(all_players)}")
+                print(f"16. Total players after merge: {len(all_players)}")
+                
+                # Save updated players to file
+                save_players(all_players)
                 
                 # Sort all players by level (highest to lowest)
                 sorted_players = sorted(all_players.items(), key=lambda x: x[1], reverse=True)
-                print(f"19. Sorted players: {sorted_players}")
+                print(f"17. Sorted players: {sorted_players}")
                 
                 embed = discord.Embed(title="Player Levels", color=0x3498db)
                 embed.set_footer(text=f"Last updated: {len(all_players)} players")
                 
-                print("20. Creating embed fields...")
+                print("18. Creating embed fields...")
                 for username, level in sorted_players:
                     embed.add_field(name=username, value=f"Level: {level}", inline=True)
                     print(f"   - Added {username}: Level {level}")
