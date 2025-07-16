@@ -86,11 +86,15 @@ def update():
         print(f"5. Extracted players: {players}")
         print(f"6. Number of players: {len(players)}")
         
+        # Sort players by level (highest to lowest)
+        sorted_players = sorted(players.items(), key=lambda x: x[1], reverse=True)
+        print(f"7. Sorted players: {sorted_players}")
+        
         embed = discord.Embed(title="Player Levels", color=0x3498db)
         embed.set_footer(text=f"Last updated: {len(players)} players")
         
-        print("7. Creating embed fields...")
-        for username, level in players.items():
+        print("8. Creating embed fields...")
+        for username, level in sorted_players:
             embed.add_field(name=username, value=f"Level: {level}", inline=True)
             print(f"   - Added {username}: Level {level}")
         
