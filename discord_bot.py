@@ -91,30 +91,35 @@ async def search(ctx, username: str):
     
     # Search for exact match first
     if username in players:
-        level = players[username]
+        player_data = players[username]
         embed = discord.Embed(title="Player Found", color=0x00ff00)
         embed.add_field(name="Username", value=username, inline=True)
-        embed.add_field(name="Level", value=level, inline=True)
+        embed.add_field(name="Display Name", value=player_data.get('displayName', 'N/A'), inline=True)
+        embed.add_field(name="Level", value=player_data.get('level', 'N/A'), inline=True)
+        embed.add_field(name="Account Age", value=f"{player_data.get('accountAge', 'N/A')} days", inline=True)
+        embed.add_field(name="User ID", value=player_data.get('userId', 'N/A'), inline=True)
         await ctx.send(embed=embed)
         return
     
     # Search for partial matches
     matches = []
     username_lower = username.lower()
-    for player_name, level in players.items():
+    for player_name, player_data in players.items():
         if username_lower in player_name.lower():
-            matches.append((player_name, level))
+            matches.append((player_name, player_data))
     
     if matches:
         # Sort matches by level (highest first)
-        matches.sort(key=lambda x: x[1], reverse=True)
+        matches.sort(key=lambda x: x[1].get('level', 0), reverse=True)
         
         embed = discord.Embed(title="Search Results", color=0x3498db)
         embed.add_field(name="Search Term", value=username, inline=False)
         
         # Show up to 10 matches
-        for i, (player_name, level) in enumerate(matches[:10]):
-            embed.add_field(name=f"Match {i+1}", value=f"{player_name}: Level {level}", inline=True)
+        for i, (player_name, player_data) in enumerate(matches[:10]):
+            level = player_data.get('level', 'N/A')
+            display_name = player_data.get('displayName', 'N/A')
+            embed.add_field(name=f"Match {i+1}", value=f"{player_name} ({display_name}): Level {level}", inline=True)
         
         if len(matches) > 10:
             embed.set_footer(text=f"Showing 10 of {len(matches)} matches")
@@ -135,12 +140,15 @@ async def top(ctx, count: int = 10):
         return
     
     # Sort by level (highest first)
-    sorted_players = sorted(players.items(), key=lambda x: x[1], reverse=True)
+    sorted_players = sorted(players.items(), key=lambda x: x[1].get('level', 0), reverse=True)
     
     embed = discord.Embed(title=f"Top {min(count, len(sorted_players))} Players", color=0x00ff00)
     
-    for i, (username, level) in enumerate(sorted_players[:count]):
-        embed.add_field(name=f"#{i+1} {username}", value=f"Level {level}", inline=False)
+    for i, (username, player_data) in enumerate(sorted_players[:count]):
+        level = player_data.get('level', 'N/A')
+        display_name = player_data.get('displayName', 'N/A')
+        account_age = player_data.get('accountAge', 'N/A')
+        embed.add_field(name=f"#{i+1} {username}", value=f"Level {level} | {display_name} | {account_age} days", inline=False)
     
     await ctx.send(embed=embed)
 
@@ -178,10 +186,10 @@ def update():
         
         # Merge new players with existing players (keep higher levels)
         all_players = existing_players.copy()
-        for username, new_level in new_players.items():
-            if username not in all_players or new_level > all_players[username]:
-                all_players[username] = new_level
-                print(f"9. Updated {username}: {new_level}")
+        for username, new_data in new_players.items():
+            if username not in all_players or new_data.get('level', 0) > all_players[username].get('level', 0):
+                all_players[username] = new_data
+                print(f"9. Updated {username}: Level {new_data.get('level', 'N/A')}")
         
         print(f"10. Total players after merge: {len(all_players)}")
         
