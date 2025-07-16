@@ -82,36 +82,24 @@ def update():
             print("ERROR: No JSON data received")
             return 'No data received', 400
         
-        players = data.get('players', {})
-        print(f"5. Extracted players: {players}")
-        print(f"6. Number of players: {len(players)}")
+        new_players = data.get('players', {})
+        print(f"5. Extracted new players: {new_players}")
+        print(f"6. Number of new players: {len(new_players)}")
         
-        # Sort players by level (highest to lowest)
-        sorted_players = sorted(players.items(), key=lambda x: x[1], reverse=True)
-        print(f"7. Sorted players: {sorted_players}")
-        
-        embed = discord.Embed(title="Player Levels", color=0x3498db)
-        embed.set_footer(text=f"Last updated: {len(players)} players")
-        
-        print("8. Creating embed fields...")
-        for username, level in sorted_players:
-            embed.add_field(name=username, value=f"Level: {level}", inline=True)
-            print(f"   - Added {username}: Level {level}")
-        
-        print("8. Getting channel...")
+        print("7. Getting channel...")
         channel = bot.get_channel(CHANNEL_ID)
-        print(f"9. Channel found: {channel}")
-        print(f"10. Channel ID: {CHANNEL_ID}")
+        print(f"8. Channel found: {channel}")
+        print(f"9. Channel ID: {CHANNEL_ID}")
         
         if not channel:
             print(f"ERROR: Channel {CHANNEL_ID} not found!")
             return 'Channel not found', 404
         
-        print("11. Channel exists, checking permissions...")
+        print("10. Channel exists, checking permissions...")
         # Check permissions more safely
         try:
             permissions = channel.permissions_for(channel.guild.me)
-            print(f"12. Permissions check successful")
+            print(f"11. Permissions check successful")
             if not permissions.send_messages:
                 print(f"ERROR: Bot doesn't have permission to send messages in channel {CHANNEL_ID}")
                 return 'No permission to send messages', 403
@@ -119,32 +107,76 @@ def update():
             print(f"Warning: Could not check permissions: {e}")
             # Continue anyway, let Discord handle the error if it occurs
         
-        print("13. Starting async send/edit function...")
+        print("12. Starting async send/edit function...")
         async def send_or_edit():
             global message_id
             try:
-                print(f"14. Inside async function, message_id: {message_id}")
+                print(f"13. Inside async function, message_id: {message_id}")
+                
+                # Get existing players from current message if it exists
+                existing_players = {}
                 if message_id:
-                    print(f"15. Trying to update message {message_id}")
+                    try:
+                        print("14. Fetching existing message to get current players...")
+                        existing_msg = await channel.fetch_message(message_id)
+                        if existing_msg and existing_msg.embeds:
+                            embed_content = existing_msg.embeds[0]
+                            for field in embed_content.fields:
+                                # Parse "Level: X" format to get level
+                                level_text = field.value
+                                if level_text and level_text.startswith("Level: "):
+                                    try:
+                                        level = int(level_text.replace("Level: ", ""))
+                                        existing_players[field.name] = level
+                                    except ValueError:
+                                        print(f"Could not parse level from: {level_text}")
+                            print(f"15. Found {len(existing_players)} existing players")
+                    except Exception as e:
+                        print(f"16. Could not fetch existing message: {e}")
+                        existing_players = {}
+                
+                # Merge new players with existing players (keep higher levels)
+                all_players = existing_players.copy()
+                for username, new_level in new_players.items():
+                    if username not in all_players or new_level > all_players[username]:
+                        all_players[username] = new_level
+                        print(f"17. Updated {username}: {new_level}")
+                
+                print(f"18. Total players after merge: {len(all_players)}")
+                
+                # Sort all players by level (highest to lowest)
+                sorted_players = sorted(all_players.items(), key=lambda x: x[1], reverse=True)
+                print(f"19. Sorted players: {sorted_players}")
+                
+                embed = discord.Embed(title="Player Levels", color=0x3498db)
+                embed.set_footer(text=f"Last updated: {len(all_players)} players")
+                
+                print("20. Creating embed fields...")
+                for username, level in sorted_players:
+                    embed.add_field(name=username, value=f"Level: {level}", inline=True)
+                    print(f"   - Added {username}: Level {level}")
+                
+                if message_id:
+                    print(f"21. Trying to update message {message_id}")
                     msg = await channel.fetch_message(message_id)
                     await msg.edit(embed=embed)
-                    print("16. Message updated successfully")
+                    print("22. Message updated successfully")
                 else:
-                    print("17. Sending new message")
+                    print("23. Sending new message")
                     msg = await channel.send(embed=embed)
                     message_id = msg.id
-                    print(f"18. New message sent with ID: {message_id}")
+                    print(f"24. New message sent with ID: {message_id}")
             except Exception as e:
-                print(f"19. Error in send_or_edit: {e}")
-                print(f"20. Trying fallback - sending new message")
+                print(f"25. Error in send_or_edit: {e}")
+                print(f"26. Trying fallback - sending new message")
                 msg = await channel.send(embed=embed)
                 message_id = msg.id
-                print(f"21. Fallback message sent with ID: {message_id}")
+                print(f"27. Fallback message sent with ID: {message_id}")
         
-        print("22. Creating task...")
+        print("28. Creating task...")
         bot.loop.create_task(send_or_edit())
-        print("23. Task created successfully")
-        print("24. Returning success")
+        print("29. Task created successfully")
+        print("30. Returning success")
         return 'ok'
     except Exception as e:
         print(f"ERROR in update route: {e}")
