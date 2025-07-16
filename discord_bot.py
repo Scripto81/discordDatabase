@@ -60,6 +60,10 @@ async def test(ctx):
     embed = discord.Embed(title="Test Message", description="Bot is working! 🎉", color=0x00ff00)
     await ctx.send(embed=embed)
 
+@app.route('/')
+def home():
+    return 'Bot is running! Use /update for POST requests.'
+
 @app.route('/update', methods=['POST'])
 def update():
     global message_id
